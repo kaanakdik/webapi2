@@ -2,7 +2,10 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "dotnet8-ci-image"
+        IMAGE_NAME = 'mcr.microsoft.com/dotnet/sdk:8.0'
+        TEST_RESULT_DIR = 'TestResults'
+        TRX_FILE = "${TEST_RESULT_DIR}/test_results.trx"
+        JUNIT_XML_FILE = "${TEST_RESULT_DIR}/test_results.xml"
     }
 
     stages {
@@ -12,15 +15,18 @@ pipeline {
             }
         }
 
-        stage('Build and Test inside Docker') {
+        stage('Test inside .NET 8 Docker container') {
             steps {
                 script {
-                    docker.image('mcr.microsoft.com/dotnet/sdk:8.0').inside {
-                        sh 'dotnet restore'
-                        sh 'dotnet build --no-restore'
-                        sh 'dotnet test --no-build --logger "trx;LogFileName=test_results.trx"'
-                        sh 'dotnet tool install -g trx2junit'
-                        sh '~/.dotnet/tools/trx2junit **/test_results.trx'
+                    docker.image(IMAGE_NAME).inside {
+                        sh '''
+                            dotnet restore
+                            dotnet build --no-restore
+                            dotnet test --no-build --logger "trx;LogFileName=${TRX_FILE}"
+
+                            dotnet tool install -g trx2junit
+                            ~/.dotnet/tools/trx2junit ${TRX_FILE}
+                        '''
                     }
                 }
             }
@@ -29,7 +35,7 @@ pipeline {
 
     post {
         always {
-            junit '**/test_results.xml'
+            junit "${JUNIT_XML_FILE}"
         }
     }
 }
