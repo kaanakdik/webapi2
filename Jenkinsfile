@@ -1,39 +1,35 @@
 pipeline {
-  agent any
+    agent any
 
-  tools {
-    dotnetsdk 'dotnet8' // ← BURAYI DÜZELTTİK
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        git credentialsId: 'github-creds', url: 'https://github.com/kaanakdik/webapi2.git'
-      }
+    environment {
+        IMAGE_NAME = "dotnet8-ci-image"
     }
 
-    stage('Restore') {
-      steps {
-        sh 'dotnet restore MyApiSolution.sln'
-      }
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/kaanakdik/webapi2.git'
+            }
+        }
+
+        stage('Build and Test inside Docker') {
+            steps {
+                script {
+                    docker.image('mcr.microsoft.com/dotnet/sdk:8.0').inside {
+                        sh 'dotnet restore'
+                        sh 'dotnet build --no-restore'
+                        sh 'dotnet test --no-build --logger "trx;LogFileName=test_results.trx"'
+                        sh 'dotnet tool install -g trx2junit'
+                        sh '~/.dotnet/tools/trx2junit **/test_results.trx'
+                    }
+                }
+            }
+        }
     }
 
-    stage('Build') {
-      steps {
-        sh 'dotnet build MyApiSolution.sln --no-restore'
-      }
+    post {
+        always {
+            junit '**/test_results.xml'
+        }
     }
-
-    stage('Test') {
-      steps {
-        sh 'dotnet test MyApiSolution.sln --no-build --logger:trx'
-      }
-    }
-  }
-
-  post {
-    always {
-      junit '**/TestResults/*.trx'
-    }
-  }
 }
