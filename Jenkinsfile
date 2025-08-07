@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   tools {
-    dotnet 'dotnet8' // .NET 8 olarak değiştirildi
+    dotnetsdk 'dotnet8' // ← BURAYI DÜZELTTİK
   }
 
   stages {
